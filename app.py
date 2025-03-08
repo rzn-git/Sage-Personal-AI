@@ -3,6 +3,15 @@ Sage: Personal AI - A secure, customizable personal AI assistant
 """
 import os
 import streamlit as st
+
+# Set page configuration - MUST be the first Streamlit command
+st.set_page_config(
+    page_title="Sage: Personal AI",
+    page_icon="🔆",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 import uuid
 import datetime
 import json
@@ -81,6 +90,7 @@ try:
     if not anthropic_api_key and st.session_state.get("anthropic_api_key"):
         anthropic_api_key = st.session_state.anthropic_api_key
     
+    # Initialize API clients without any extra parameters
     openai_client = OpenAI(api_key=openai_api_key) if openai_api_key else None
     anthropic_client = Anthropic(api_key=anthropic_api_key) if anthropic_api_key else None
 except Exception as e:
@@ -98,14 +108,6 @@ except ImportError:
         return ""
     def update_user_profile():
         return True
-
-# Set page configuration
-st.set_page_config(
-    page_title="Sage: Personal AI",
-    page_icon="🔆",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Custom CSS for better UI
 st.markdown("""
