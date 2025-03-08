@@ -44,4 +44,4 @@ Thumbs.db
 *.log
 
 # Streamlit
-streamlit-setup.md
+/streamlit-setup.md
