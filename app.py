@@ -438,8 +438,19 @@ def get_chat_response(messages, model_info):
 
 # Main chat interface
 if auth_enabled:
+    # Initialize signup mode if not already set
+    if "signup_mode" not in st.session_state:
+        st.session_state["signup_mode"] = False
+        
     # Check if the user is authenticated
     if not st.session_state.get("authenticated", False):
+        # Check if we're in signup mode
+        if st.session_state.get("signup_mode", False):
+            # The signup form will be shown by check_password()
+            check_password()
+            # Stop execution after showing signup form
+            st.stop()
+        
         # Show login form
         st.title("🔆 Sage: Personal AI")
         
@@ -461,8 +472,11 @@ if auth_enabled:
                     st.error("Invalid username or password")
             
             # Toggle signup mode
-            if st.button("Sign Up"):
-                set_signup_mode(True)
+            def enable_signup_mode():
+                st.session_state["signup_mode"] = True
+                
+            if st.button("Sign Up", on_click=enable_signup_mode):
+                st.experimental_rerun()
         
         with col2:
             st.image("https://img.freepik.com/free-vector/ai-technology-brain-background-smart-digital-transformation_53876-124672.jpg", 

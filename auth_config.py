@@ -102,6 +102,9 @@ def check_password():
 def set_signup_mode(enabled):
     """Set whether we're in signup mode"""
     st.session_state["signup_mode"] = enabled
+    # Force a rerun to show the signup form immediately
+    if enabled:
+        st.experimental_rerun()
 
 def show_signup_form():
     """Show the signup form and handle user registration"""
@@ -110,7 +113,7 @@ def show_signup_form():
     st.title("🔆 Sage: Personal AI - Sign Up")
     st.write("Create a new account to access this application.")
     
-    # Initialize signup form state if not exists
+    # Initialize session state variables for the form
     if "signup_username" not in st.session_state:
         st.session_state["signup_username"] = ""
     if "signup_password" not in st.session_state:
@@ -120,25 +123,10 @@ def show_signup_form():
     if "signup_display_name" not in st.session_state:
         st.session_state["signup_display_name"] = ""
     
-    # Get existing users
-    user_data = load_user_data()
-    allowed_users_str = os.environ.get("ALLOWED_USERS", '{"admin": "admin"}')
-    try:
-        allowed_users = json.loads(allowed_users_str)
-    except json.JSONDecodeError:
-        allowed_users = {"admin": "admin"}
-    
-    # Combine both user sources to check for duplicates
-    all_usernames = set(list(allowed_users.keys()) + list(user_data.keys()))
-    
-    # Input fields
-    st.text_input("Username", key="signup_username")
-    st.text_input("Display Name", key="signup_display_name")
-    st.text_input("Password", type="password", key="signup_password")
-    st.text_input("Confirm Password", type="password", key="signup_confirm_password")
-    
+    # Function to handle signup form submission
     def handle_signup():
-        """Process the signup form"""
+        """Handle signup form submission"""
+        # Get values from session state
         username = st.session_state["signup_username"]
         password = st.session_state["signup_password"]
         confirm_password = st.session_state["signup_confirm_password"]
@@ -153,7 +141,9 @@ def show_signup_form():
             st.session_state["signup_error"] = "Passwords do not match"
             return
         
-        if username in all_usernames:
+        # Check if username already exists
+        user_data = load_user_data()
+        if username in user_data:
             st.session_state["signup_error"] = "Username already exists"
             return
         
@@ -161,55 +151,84 @@ def show_signup_form():
         if username not in user_data:
             user_data[username] = {
                 "display_name": display_name,
-                "password": password,  # In a real app, you'd hash this
+                "password": password,
                 "profile_picture": None,
                 "total_spending": 0.0,
                 "model_usage": {},
                 "last_updated": datetime.datetime.now().isoformat()
             }
+            
+            # Save user data
             save_user_data(user_data)
             
-            # Set success message and return to login
+            # Create user directory for chat data
+            user_dir = os.path.join("chat_data", username)
+            os.makedirs(user_dir, exist_ok=True)
+            
+            # Set success message and reset form
             st.session_state["signup_success"] = True
             st.session_state["signup_mode"] = False
             
-            # Clear signup form
+            # Clear form fields
             st.session_state["signup_username"] = ""
             st.session_state["signup_password"] = ""
             st.session_state["signup_confirm_password"] = ""
             st.session_state["signup_display_name"] = ""
     
-    # Style for Create Account button
+    # Custom CSS for better UI
     st.markdown("""
         <style>
-        div[data-testid="stButton"] button {
+        .signup-container {
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .signup-field {
+            margin-bottom: 15px;
+        }
+        .stButton button {
             background-color: #4CAF50;
             color: white;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
-        div[data-testid="stButton"] button:hover {
+        .stButton button:hover {
             background-color: #45a049;
             color: white;
         }
         </style>
     """, unsafe_allow_html=True)
-
-    # Create Account button
+    
+    # Create signup form
+    st.text_input("Username", key="signup_username")
+    st.text_input("Display Name", key="signup_display_name")
+    st.text_input("Password", type="password", key="signup_password")
+    st.text_input("Confirm Password", type="password", key="signup_confirm_password")
+    
+    # Create account button
     st.button("Create Account", on_click=handle_signup)
     
-    # Back to Login option
+    # Back to login button
     st.write("Already have an account?")
-    st.button("Back to Login", on_click=lambda: set_signup_mode(False))
+    
+    def back_to_login():
+        st.session_state["signup_mode"] = False
+        st.experimental_rerun()
+        
+    st.button("Back to Login", on_click=back_to_login)
     
     # Show error message if any
     if "signup_error" in st.session_state and st.session_state["signup_error"]:
         st.error(st.session_state["signup_error"])
         st.session_state["signup_error"] = ""
     
-    # Show success message if registration was successful
+    # Show success message if signup was successful
     if "signup_success" in st.session_state and st.session_state["signup_success"]:
         st.success("Account created successfully! You can now log in.")
         st.session_state["signup_success"] = False
-    
+        
     return False
 
 def load_user_profile(username):
