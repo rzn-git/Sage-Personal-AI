@@ -100,8 +100,10 @@ except Exception as e:
 try:
     from auth_config import check_password, set_usage_quota, get_profile_picture_html, update_user_profile, set_signup_mode
     auth_enabled = True
-except ImportError:
+    st.write(f"DEBUG - Authentication enabled: {auth_enabled}")
+except ImportError as e:
     auth_enabled = False
+    st.write(f"DEBUG - Authentication disabled due to import error: {str(e)}")
     def set_usage_quota():
         return True
     def get_profile_picture_html():
@@ -448,6 +450,12 @@ if auth_enabled:
     # Initialize signup mode if not already set
     if "signup_mode" not in st.session_state:
         st.session_state["signup_mode"] = False
+    
+    # Add debugging
+    st.write(f"DEBUG - auth_enabled: {auth_enabled}")
+    st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
+    st.write(f"DEBUG - signup_mode: {st.session_state.get('signup_mode', False)}")
+    st.write(f"DEBUG - current_user: {st.session_state.get('current_user', 'None')}")
         
     # Check if the user is authenticated
     if not st.session_state.get("authenticated", False):
@@ -552,9 +560,22 @@ else:
     username = "Guest"
     st.session_state["authenticated"] = True
     st.session_state["current_user"] = username
+    
+    # Add debugging
+    st.write(f"DEBUG - No authentication, using Guest user")
+    st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
+    st.write(f"DEBUG - current_user: {st.session_state.get('current_user', 'None')}")
+
+# Add debugging
+st.write(f"DEBUG - Before chat check - current_chat_id: {st.session_state.get('current_chat_id', 'None')}")
+st.write(f"DEBUG - Before chat check - chats: {st.session_state.get('chats', {})}")
 
 if st.session_state.current_chat_id is None or st.session_state.current_chat_id not in st.session_state.chats:
     create_new_chat()
+    
+    # Add debugging
+    st.write(f"DEBUG - After create_new_chat - current_chat_id: {st.session_state.get('current_chat_id', 'None')}")
+    st.write(f"DEBUG - After create_new_chat - chats: {st.session_state.get('chats', {})}")
 
 current_chat = st.session_state.chats[st.session_state.current_chat_id]
 

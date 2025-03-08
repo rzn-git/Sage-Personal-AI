@@ -12,6 +12,11 @@ from utils import load_user_data, save_user_data
 def check_password():
     """Returns `True` if the user had the correct password and is an allowed user."""
     
+    # Add debugging
+    st.write(f"DEBUG - check_password called")
+    st.write(f"DEBUG - signup_mode: {st.session_state.get('signup_mode', False)}")
+    st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
+    
     # Check if we're in signup mode
     if st.session_state.get("signup_mode", False):
         return show_signup_form()
@@ -77,12 +82,24 @@ def check_password():
             # Load user profile data
             load_user_profile(username)
             
+            # Initialize chat-related session state variables
+            if "chats" not in st.session_state:
+                st.session_state.chats = {}
+            
+            if "current_chat_id" not in st.session_state:
+                st.session_state.current_chat_id = None
+            
             # Don't store the password
             del st.session_state["auth_password"]
             del st.session_state["auth_username"]
             
             # Add debugging
             st.write(f"DEBUG - Authentication successful for: {username}")
+            st.write(f"DEBUG - Authentication state: {st.session_state.get('authenticated', False)}")
+            st.write(f"DEBUG - Current user: {st.session_state.get('current_user', 'None')}")
+            
+            # Force a rerun to refresh the page
+            st.rerun()
         else:
             st.session_state["authenticated"] = False
             st.write(f"DEBUG - Authentication failed for: {username}")
@@ -210,10 +227,6 @@ def show_signup_form():
             st.session_state["signup_success"] = True
             st.session_state["signup_mode"] = False
             
-            # Pre-fill login credentials for convenience
-            st.session_state["auth_username"] = username
-            st.session_state["auth_password"] = password
-            
             # Automatically authenticate the user
             st.session_state["authenticated"] = True
             st.session_state["current_user"] = username
@@ -228,14 +241,13 @@ def show_signup_form():
             # Load user profile data
             load_user_profile(username)
             
-            # Clear form fields
-            st.session_state["signup_username"] = ""
-            st.session_state["signup_password"] = ""
-            st.session_state["signup_confirm_password"] = ""
-            st.session_state["signup_display_name"] = ""
-            
             # Add debugging
             st.write(f"DEBUG - User authenticated after signup: {username}")
+            st.write(f"DEBUG - Authentication state: {st.session_state.get('authenticated', False)}")
+            st.write(f"DEBUG - Current user: {st.session_state.get('current_user', 'None')}")
+            
+            # Force a rerun to refresh the page
+            st.rerun()
 
     # Don't show the signup form if already successful
     if st.session_state.get("signup_success", False):
@@ -270,22 +282,104 @@ def show_signup_form():
 
 def load_user_profile(username):
     """Load user profile data"""
-    # Implementation of load_user_profile function
-    pass
+    user_data = load_user_data()
+    if username in user_data:
+        st.session_state["user_profile"] = user_data[username]
+        return True
+    return False
 
 def save_user_profile(username, profile_data):
     """Save user profile data"""
-    # Implementation of save_user_profile function
-    pass
+    user_data = load_user_data()
+    if username in user_data:
+        user_data[username].update(profile_data)
+        save_user_data(user_data)
+        return True
+    return False
 
-def load_user_data():
-    """Load user data from file"""
-    # Implementation of load_user_data function
-    pass
+def get_profile_picture_html(username=None):
+    """Get HTML for user profile picture"""
+    if not username:
+        username = st.session_state.get("current_user")
+    
+    if not username:
+        return ""
+    
+    user_data = load_user_data()
+    if username in user_data and "profile_picture" in user_data[username] and user_data[username]["profile_picture"]:
+        # If user has a profile picture, use it
+        profile_pic = user_data[username]["profile_picture"]
+        return f'<img src="data:image/png;base64,{profile_pic}" style="width:50px;height:50px;border-radius:50%;">'
+    else:
+        # Default avatar with first letter of username
+        first_letter = username[0].upper()
+        return f'<div style="width:50px;height:50px;border-radius:50%;background-color:#4CAF50;color:white;display:flex;align-items:center;justify-content:center;font-size:24px;">{first_letter}</div>'
 
-def save_user_data(user_data):
-    """Save user data to file"""
-    # Implementation of save_user_data function
-    pass
+def set_usage_quota():
+    """Check and set usage quota for the current user"""
+    if not st.session_state.get("authenticated", False):
+        return False
+    
+    username = st.session_state.get("current_user")
+    if not username:
+        return False
+    
+    # Load user data
+    user_data = load_user_data()
+    if username not in user_data:
+        return False
+    
+    # Check if user has a spending limit
+    if "spending_limit" in user_data[username]:
+        spending_limit = user_data[username]["spending_limit"]
+        current_spending = user_data[username].get("total_spending", 0.0)
+        
+        # If user is over their limit, show a warning
+        if current_spending >= spending_limit:
+            st.warning(f"You have reached your spending limit of ${spending_limit:.2f}. Please contact the administrator to increase your limit.")
+            return False
+    
+    return True
+
+def update_user_profile():
+    """Update user profile with form data"""
+    if not st.session_state.get("authenticated", False):
+        return False
+    
+    username = st.session_state.get("current_user")
+    if not username:
+        return False
+    
+    # Get values from session state
+    display_name = st.session_state.get("profile_display_name", "")
+    new_password = st.session_state.get("profile_new_password", "")
+    confirm_password = st.session_state.get("profile_confirm_password", "")
+    
+    # Validate inputs
+    if new_password and new_password != confirm_password:
+        st.error("Passwords do not match")
+        return False
+    
+    # Update user data
+    user_data = load_user_data()
+    
+    if username in user_data:
+        # Update display name if provided
+        if display_name:
+            user_data[username]["display_name"] = display_name
+        
+        # Update password if provided
+        if new_password:
+            user_data[username]["password"] = new_password
+        
+        # Save updated user data
+        save_user_data(user_data)
+        
+        # Update session state
+        st.session_state["user_profile"] = user_data[username]
+        
+        return True
+    
+    return False
 
             #
