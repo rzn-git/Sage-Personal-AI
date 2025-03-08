@@ -1,5 +1,7 @@
- # Environment variables
+# Environment variables - NEVER commit these to version control
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/

@@ -8,7 +8,7 @@ This document provides instructions for deploying your Sage AI application to va
 - API keys for OpenAI and Anthropic
 - Basic familiarity with command line tools
 
-## Option 1: Streamlit Cloud (Recommended)
+## Option 1: Streamlit Cloud (Recommended for Simplicity)
 
 1. **Push your code to GitHub**
    ```bash
@@ -39,7 +39,66 @@ This document provides instructions for deploying your Sage AI application to va
      - Enable "Private app" option
      - Add specific email addresses that can access the app
 
-5. **Share with Intended Users**
-   - Share the app URL only with intended users
-   - Provide them with their username and password
-   - Inform them about daily usage limits 
+## Option 2: Docker Deployment (Recommended for Security)
+
+1. **Set up environment variables**
+   - Copy `.env.example` to `.env`
+   - Add your API keys and configuration to `.env`
+
+2. **Build and run with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Access your application**
+   - Open http://localhost:8501 in your browser
+
+4. **For production deployment**
+   - Set up a reverse proxy (Nginx/Traefik) with HTTPS
+   - Configure proper authentication
+   - Consider using Docker Swarm or Kubernetes for scaling
+
+## Option 3: Manual Deployment
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd sage-personal-ai
+   ```
+
+2. **Set up a virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure environment variables**
+   - Copy `.env.example` to `.env`
+   - Add your API keys to `.env`
+
+5. **Run the application**
+   ```bash
+   streamlit run app.py
+   ```
+
+## Security Best Practices
+
+1. **API Key Protection**
+   - Never commit API keys to version control
+   - Use environment variables or a secrets manager
+   - Rotate keys regularly
+
+2. **Access Control**
+   - Use the built-in authentication system
+   - Set up HTTPS with a reverse proxy
+   - Limit access to trusted users
+
+3. **Usage Monitoring**
+   - Monitor API usage to prevent unexpected costs
+   - Set up alerts for unusual activity
+   - Regularly review logs for security issues 
