@@ -1,78 +1,82 @@
-# Sage: Personal AI
+# Sage: Personal AI Assistant
 
-A secure, customizable personal AI assistant built with Streamlit, leveraging OpenAI and Anthropic models.
+A powerful AI chat assistant built with Streamlit that supports both OpenAI and Anthropic models.
 
 ## Features
 
-- Chat with multiple AI models (OpenAI GPT and Anthropic Claude)
-- Secure authentication system
+- Multi-model support (OpenAI GPT models and Anthropic Claude models)
+- User authentication system
 - Chat history management
-- Usage tracking and quotas
-- Responsive UI
+- Usage tracking and spending analytics
+- Responsive UI with dark/light mode
+- API key management
 
-## Getting Started
+## Deployment to Streamlit Cloud
+
+### 1. Fork or Clone this Repository
+
+First, fork or clone this repository to your GitHub account.
+
+### 2. Set Up Streamlit Cloud
+
+1. Go to [Streamlit Cloud](https://streamlit.io/cloud)
+2. Sign in with your GitHub account
+3. Click "New app"
+4. Select this repository, branch (main), and the main file (app.py)
+
+### 3. Configure Environment Variables
+
+In the Streamlit Cloud deployment settings, add the following environment variables:
+
+- `OPENAI_API_KEY`: Your OpenAI API key (optional if users will provide their own)
+- `ANTHROPIC_API_KEY`: Your Anthropic API key (optional if users will provide their own)
+- `ALLOWED_USERS`: JSON string of username:password pairs, e.g., `{"admin":"admin_password","user1":"password1"}`
+- `MAX_DAILY_CALLS`: Maximum number of API calls allowed per day (default: 50)
+
+### 4. Deploy
+
+Click "Deploy" and your app will be live on Streamlit Cloud!
+
+### 5. User Management
+
+- The app supports multiple users as defined in the `ALLOWED_USERS` environment variable
+- Each user has their own chat history and usage tracking
+- Users can also sign up if enabled in the app
+
+## Local Development
 
 ### Prerequisites
 
-- Python 3.9 or higher
-- API keys for OpenAI and Anthropic
+- Python 3.8+
+- OpenAI API key
+- Anthropic API key (optional)
 
 ### Installation
 
-#### Option 1: Using Docker (Recommended)
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/sage-personal-ai.git
+cd sage-personal-ai
+```
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/sage-personal-ai.git
-   cd sage-personal-ai
-   ```
+2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
 
-2. Create a `.env` file with your API keys:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
+3. Create a `.env` file with your API keys
+```
+OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+ALLOWED_USERS={"admin":"admin_password"}
+```
 
-3. Build and run with Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
+4. Run the app
+```bash
+streamlit run app.py
+```
 
-4. Access the application at http://localhost:8501
-
-#### Option 2: Manual Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/sage-personal-ai.git
-   cd sage-personal-ai
-   ```
-
-2. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Create a `.env` file with your API keys:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
-
-5. Run the application:
-   ```bash
-   streamlit run app.py
-   ```
-
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 sage-personal-ai/
@@ -81,78 +85,16 @@ sage-personal-ai/
 ├── error_handler.py    # Error handling utilities
 ├── logging_config.py   # Logging configuration
 ├── utils.py            # Utility functions
-├── run.py              # Application runner
-├── test_app.py         # Unit tests
-├── Dockerfile          # Docker configuration
-├── docker-compose.yml  # Docker Compose configuration
 ├── requirements.txt    # Python dependencies
-├── Makefile            # Build automation
-└── .github/workflows/  # CI/CD pipelines
+└── chat_data/          # Directory for user data and chat history
+    └── users.json      # User profiles and usage data
 ```
-
-### Using the Makefile
-
-The project includes a Makefile with useful commands:
-
-```bash
-# Install dependencies
-make install
-
-# Run the application
-make run
-
-# Run tests
-make test
-
-# Build Docker image
-make docker-build
-
-# Run with Docker
-make docker-run
-
-# Stop Docker containers
-make docker-stop
-
-# Run security checks
-make security-check
-```
-
-## DevOps and Security
-
-### CI/CD Pipeline
-
-The project includes a GitHub Actions workflow for continuous integration and deployment:
-
-- Automated testing
-- Security scanning with Bandit
-- Dependency vulnerability checking
-- Docker image building
-
-### Security Features
-
-- Environment variables for sensitive configuration
-- Authentication system with password protection
-- API usage quotas
-- Comprehensive error handling and logging
-- Docker containerization for isolation
-
-### Deployment Options
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -am 'Add my feature'`
-4. Push to the branch: `git push origin feature/my-feature`
-5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT
 
-## Acknowledgments
+## Acknowledgements
 
-- Streamlit for the web framework
-- OpenAI and Anthropic for the AI models 
+- Built with [Streamlit](https://streamlit.io/)
+- Uses [OpenAI API](https://openai.com/api/) and [Anthropic API](https://anthropic.com/) 

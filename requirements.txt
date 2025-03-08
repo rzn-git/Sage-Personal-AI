@@ -6,8 +6,8 @@ requests==2.31.0
 uuid==1.30
 tiktoken==0.5.2
 
-# Development and testing
-pytest==7.4.3
-pytest-cov==4.1.0
-bandit==1.7.5
-safety==2.3.5
+# Remove development dependencies for production deployment
+# pytest==7.4.3
+# pytest-cov==4.1.0
+# bandit==1.7.5
+# safety==2.3.5

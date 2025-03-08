@@ -25,8 +25,9 @@ var/
 .installed.cfg
 *.egg
 
-# Chat data
-chat_data/
+# Chat data - Keep the directory structure but ignore specific user chat files
+# chat_data/
+chat_data/*/*.json
 
 # Virtual Environment
 venv/
@@ -48,3 +49,6 @@ Thumbs.db
 # Streamlit
 /streamlit-delete-after-setup.md
 /streamlit-setup.md
+
+# Docker
+docker-compose.override.yml

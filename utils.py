@@ -5,6 +5,16 @@ import tiktoken
 
 # Define the path for storing chat data
 CHAT_DATA_DIR = "chat_data"
+# Ensure the path is absolute for Streamlit Cloud compatibility
+if not os.path.isabs(CHAT_DATA_DIR):
+    # Check if we're in Streamlit Cloud (it sets this environment variable)
+    if os.environ.get("STREAMLIT_SHARING_MODE") == "streamlit_sharing":
+        # Use the persistent storage location in Streamlit Cloud
+        CHAT_DATA_DIR = os.path.join(os.path.expanduser("~"), ".streamlit", "chat_data")
+    else:
+        # Use relative path from current directory
+        CHAT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), CHAT_DATA_DIR)
+
 CHAT_DATA_FILE = os.path.join(CHAT_DATA_DIR, "chats.json")
 USER_DATA_FILE = os.path.join(CHAT_DATA_DIR, "users.json")
 
@@ -69,8 +79,24 @@ def calculate_cost(tokens, model, is_input=True):
 
 def ensure_data_dir():
     """Ensure the data directory exists"""
-    if not os.path.exists(CHAT_DATA_DIR):
-        os.makedirs(CHAT_DATA_DIR)
+    os.makedirs(CHAT_DATA_DIR, exist_ok=True)
+    
+    # Create the user data file if it doesn't exist
+    if not os.path.exists(USER_DATA_FILE):
+        with open(USER_DATA_FILE, 'w') as f:
+            json.dump({}, f)
+    
+    # Only create user directories if the user data file exists
+    if os.path.exists(USER_DATA_FILE):
+        try:
+            with open(USER_DATA_FILE, 'r') as f:
+                user_data = json.load(f)
+                for username in user_data:
+                    user_dir = os.path.join(CHAT_DATA_DIR, username)
+                    os.makedirs(user_dir, exist_ok=True)
+        except (json.JSONDecodeError, FileNotFoundError):
+            # If there's an error reading the file, just continue
+            pass
 
 def save_chats(chats):
     """Save chats to disk"""
@@ -107,7 +133,8 @@ def save_user_data(user_data):
 
 def load_user_data():
     """Load user data from disk"""
-    ensure_data_dir()
+    # Ensure the directory exists, but don't call load_user_data() again
+    os.makedirs(CHAT_DATA_DIR, exist_ok=True)
     
     if not os.path.exists(USER_DATA_FILE):
         return {}

@@ -27,12 +27,47 @@ try:
     
     if not openai_api_key:
         st.warning("OpenAI API key not found. Some models may not be available.")
+        # For Streamlit Cloud, provide a way for users to input their own API key
+        if "openai_api_key" not in st.session_state:
+            st.session_state.openai_api_key = ""
+        
+        # Only show this input if user is authenticated
+        if st.session_state.get("authenticated", False):
+            with st.sidebar.expander("OpenAI API Key"):
+                openai_api_key = st.text_input(
+                    "Enter your OpenAI API key:", 
+                    value=st.session_state.openai_api_key,
+                    type="password",
+                    key="openai_api_key_input"
+                )
+                st.session_state.openai_api_key = openai_api_key
     
     if not anthropic_api_key:
         st.warning("Anthropic API key not found. Some models may not be available.")
+        # For Streamlit Cloud, provide a way for users to input their own API key
+        if "anthropic_api_key" not in st.session_state:
+            st.session_state.anthropic_api_key = ""
+        
+        # Only show this input if user is authenticated
+        if st.session_state.get("authenticated", False):
+            with st.sidebar.expander("Anthropic API Key"):
+                anthropic_api_key = st.text_input(
+                    "Enter your Anthropic API key:", 
+                    value=st.session_state.anthropic_api_key,
+                    type="password",
+                    key="anthropic_api_key_input"
+                )
+                st.session_state.anthropic_api_key = anthropic_api_key
     
-    openai_client = OpenAI(api_key=openai_api_key)
-    anthropic_client = Anthropic(api_key=anthropic_api_key)
+    # Use session state API keys if available
+    if not openai_api_key and st.session_state.get("openai_api_key"):
+        openai_api_key = st.session_state.openai_api_key
+    
+    if not anthropic_api_key and st.session_state.get("anthropic_api_key"):
+        anthropic_api_key = st.session_state.anthropic_api_key
+    
+    openai_client = OpenAI(api_key=openai_api_key) if openai_api_key else None
+    anthropic_client = Anthropic(api_key=anthropic_api_key) if anthropic_api_key else None
 except Exception as e:
     st.error(f"Error initializing API clients: {str(e)}")
 
@@ -278,82 +313,103 @@ def create_new_chat():
 # Function to get chat response from OpenAI
 @api_error_handler("openai")
 def get_openai_response(messages, model):
+    # Check if OpenAI client is initialized
+    if openai_client is None:
+        raise APIError("OpenAI API key not configured. Please add your API key in the sidebar.")
+        
     # Track API usage
-    if "api_calls_today" in st.session_state:
-        st.session_state.api_calls_today += 1
+    username = st.session_state.get("current_user", "anonymous")
     
-    # Calculate input tokens
-    input_text = " ".join([msg["content"] for msg in messages])
-    input_tokens = num_tokens_from_string(input_text, model)
+    # Convert messages to OpenAI format
+    formatted_messages = []
+    input_tokens = 0
     
-    # Check if model is one of the newer models that doesn't support temperature
-    o_models = ["o1", "o1-mini", "o3-mini"]
+    for msg in messages:
+        formatted_messages.append({
+            "role": msg["role"],
+            "content": msg["content"]
+        })
+        input_tokens += num_tokens_from_string(msg["content"], model)
     
-    # Create parameters dictionary
-    params = {
-        "model": model,
-        "messages": messages,
-    }
-    
-    # Add temperature parameter only for models that support it
-    if not any(o_model in model for o_model in o_models):
-        params["temperature"] = 0.7
-    
-    response = openai_client.chat.completions.create(**params)
-    response_text = response.choices[0].message.content
-    
-    # Calculate output tokens
-    output_tokens = num_tokens_from_string(response_text, model)
-    
-    # Update user spending if authenticated
-    if st.session_state.get("authenticated", False) and st.session_state.get("current_user"):
-        username = st.session_state.get("current_user")
+    try:
+        response = openai_client.chat.completions.create(
+            model=model,
+            messages=formatted_messages,
+            temperature=0.7,
+        )
+        
+        content = response.choices[0].message.content
+        output_tokens = num_tokens_from_string(content, model)
+        
+        # Update user spending
         update_user_spending(username, model, input_tokens, output_tokens)
-    
-    return response_text
+        
+        return content
+    except Exception as e:
+        raise APIError(f"OpenAI API error: {str(e)}")
 
 # Function to get chat response from Anthropic
 @api_error_handler("anthropic")
 def get_anthropic_response(messages, model):
+    # Check if Anthropic client is initialized
+    if anthropic_client is None:
+        raise APIError("Anthropic API key not configured. Please add your API key in the sidebar.")
+        
     # Track API usage
-    if "api_calls_today" in st.session_state:
-        st.session_state.api_calls_today += 1
-    
-    # Calculate input tokens
-    input_text = " ".join([msg["content"] for msg in messages])
-    input_tokens = num_tokens_from_string(input_text, model)
+    username = st.session_state.get("current_user", "anonymous")
     
     # Convert messages to Anthropic format
-    anthropic_messages = []
+    system_prompt = ""
+    formatted_messages = []
+    input_tokens = 0
+    
     for msg in messages:
-        role = "user" if msg["role"] == "user" else "assistant"
-        anthropic_messages.append({"role": role, "content": msg["content"]})
+        if msg["role"] == "system":
+            system_prompt = msg["content"]
+            input_tokens += num_tokens_from_string(msg["content"], model)
+        else:
+            formatted_messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+            input_tokens += num_tokens_from_string(msg["content"], model)
     
-    # All current Claude models support these parameters
-    response = anthropic_client.messages.create(
-        model=model,
-        messages=anthropic_messages,
-        temperature=0.7,
-        max_tokens=1000
-    )
-    response_text = response.content[0].text
-    
-    # Calculate output tokens
-    output_tokens = num_tokens_from_string(response_text, model)
-    
-    # Update user spending if authenticated
-    if st.session_state.get("authenticated", False) and st.session_state.get("current_user"):
-        username = st.session_state.get("current_user")
+    try:
+        response = anthropic_client.messages.create(
+            model=model,
+            system=system_prompt,
+            messages=formatted_messages,
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        content = response.content[0].text
+        output_tokens = num_tokens_from_string(content, model)
+        
+        # Update user spending
         update_user_spending(username, model, input_tokens, output_tokens)
-    
-    return response_text
+        
+        return content
+    except Exception as e:
+        raise APIError(f"Anthropic API error: {str(e)}")
 
 # Function to get chat response
 @handle_error
 def get_chat_response(messages, model_info):
+    """Get response from the selected model"""
+    model = model_info["name"]  # Use "name" instead of "id"
     provider = model_info["provider"]
-    model = st.session_state.model
     
+    # Check if we have the necessary API key
+    if provider == "openai" and openai_client is None:
+        st.error("OpenAI API key not configured. Please add your API key in the sidebar.")
+        return None
+    
+    if provider == "anthropic" and anthropic_client is None:
+        st.error("Anthropic API key not configured. Please add your API key in the sidebar.")
+        return None
+    
+    # Get response based on provider
     if provider == "openai":
         return get_openai_response(messages, model)
     elif provider == "anthropic":
