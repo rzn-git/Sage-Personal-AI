@@ -89,11 +89,11 @@ def check_password():
         }
         </style>
     """, unsafe_allow_html=True)
-    st.button("Login", on_click=credentials_entered)
+    st.button("Login", on_click=credentials_entered, key="auth_login_button")
     
     # Sign up option
     st.write("Don't have an account? Sign Up")
-    st.button("Sign Up", on_click=lambda: set_signup_mode(True))
+    st.button("Sign Up", on_click=lambda: set_signup_mode(True), key="auth_signup_button")
     
     # Show error message if authentication failed
     if "authenticated" in st.session_state:
@@ -211,7 +211,7 @@ def show_signup_form():
     st.text_input("Confirm Password", type="password", key="signup_confirm_password")
     
     # Create account button
-    st.button("Create Account", on_click=handle_signup)
+    st.button("Create Account", on_click=handle_signup, key="signup_create_account_button")
     
     # Back to login button
     st.write("Already have an account?")
@@ -220,7 +220,7 @@ def show_signup_form():
         st.session_state["signup_mode"] = False
         st.experimental_rerun()
         
-    st.button("Back to Login", on_click=back_to_login)
+    st.button("Back to Login", on_click=back_to_login, key="signup_back_to_login_button")
     
     # Show error message if any
     if "signup_error" in st.session_state and st.session_state["signup_error"]:

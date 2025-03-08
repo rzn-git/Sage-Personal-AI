@@ -467,7 +467,7 @@ if auth_enabled:
             st.text_input("Password", type="password", key="app_password")
             
             # Login button
-            if st.button("Login"):
+            if st.button("Login", key="app_login_button"):
                 # Copy values to the keys expected by auth_config.py
                 if "app_username" in st.session_state and "app_password" in st.session_state:
                     st.session_state["auth_username"] = st.session_state["app_username"]
@@ -480,7 +480,7 @@ if auth_enabled:
             def enable_signup_mode():
                 st.session_state["signup_mode"] = True
                 
-            if st.button("Sign Up", on_click=enable_signup_mode):
+            if st.button("Sign Up", on_click=enable_signup_mode, key="app_signup_button"):
                 st.experimental_rerun()
         
         with col2:
