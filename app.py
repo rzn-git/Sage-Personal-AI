@@ -461,13 +461,18 @@ if auth_enabled:
             st.subheader("Login")
             
             # Username input
-            st.text_input("Username", key="username")
+            st.text_input("Username", key="app_username")
             
             # Password input
-            st.text_input("Password", type="password", key="password")
+            st.text_input("Password", type="password", key="app_password")
             
             # Login button
             if st.button("Login"):
+                # Copy values to the keys expected by auth_config.py
+                if "app_username" in st.session_state and "app_password" in st.session_state:
+                    st.session_state["auth_username"] = st.session_state["app_username"]
+                    st.session_state["auth_password"] = st.session_state["app_password"]
+                
                 if not check_password():
                     st.error("Invalid username or password")
             

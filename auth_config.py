@@ -46,8 +46,10 @@ def check_password():
     
     def credentials_entered():
         """Checks whether credentials entered by the user are correct."""
-        username = st.session_state["username"]
-        password = st.session_state["password"]
+        # Get username and password from session state
+        # Use auth_username and auth_password to avoid conflicts with app.py
+        username = st.session_state["auth_username"]
+        password = st.session_state["auth_password"]
         
         if username in allowed_users and hmac.compare_digest(password, allowed_users[username]):
             st.session_state["authenticated"] = True
@@ -57,22 +59,22 @@ def check_password():
             load_user_profile(username)
             
             # Don't store the password
-            del st.session_state["password"]
-            del st.session_state["username"]
+            del st.session_state["auth_password"]
+            del st.session_state["auth_username"]
         else:
             st.session_state["authenticated"] = False
 
-    # Return True if the user is authenticated
+    # Don't show the login form if already authenticated
     if st.session_state.get("authenticated", False):
         return True
-
-    # Show login form with title and subtitle
+        
+    # Show login form
     st.title("🔆 Sage: Personal AI")
     st.write("Please enter your credentials to access this application.")
     
-    # Username and password fields
-    st.text_input("Username", key="username")
-    st.text_input("Password", type="password", key="password")
+    # Username and password fields - use auth_username and auth_password as keys
+    st.text_input("Username", key="auth_username")
+    st.text_input("Password", type="password", key="auth_password")
     
     # Login button with green styling
     st.markdown("""
@@ -93,6 +95,7 @@ def check_password():
     st.write("Don't have an account? Sign Up")
     st.button("Sign Up", on_click=lambda: set_signup_mode(True))
     
+    # Show error message if authentication failed
     if "authenticated" in st.session_state:
         if not st.session_state["authenticated"]:
             st.error("😕 Invalid username or password")
