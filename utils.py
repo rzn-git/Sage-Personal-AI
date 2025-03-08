@@ -2,6 +2,7 @@ import json
 import os
 import datetime
 import tiktoken
+import streamlit as st
 
 # Define the path for storing chat data
 CHAT_DATA_DIR = "chat_data"
@@ -128,20 +129,32 @@ def save_user_data(user_data):
     """Save user data to disk"""
     ensure_data_dir()
     
+    # Save to file
     with open(USER_DATA_FILE, 'w') as f:
         json.dump(user_data, f, indent=2)
+    
+    # Also store in session state for Streamlit Cloud
+    st.session_state["user_data"] = user_data
 
 def load_user_data():
-    """Load user data from disk"""
+    """Load user data from disk or session state"""
     # Ensure the directory exists, but don't call load_user_data() again
     os.makedirs(CHAT_DATA_DIR, exist_ok=True)
     
+    # First try to get from session state (for Streamlit Cloud)
+    if "user_data" in st.session_state:
+        return st.session_state["user_data"]
+    
+    # Otherwise load from file
     if not os.path.exists(USER_DATA_FILE):
         return {}
     
     try:
         with open(USER_DATA_FILE, 'r') as f:
-            return json.load(f)
+            user_data = json.load(f)
+            # Store in session state for future use
+            st.session_state["user_data"] = user_data
+            return user_data
     except (json.JSONDecodeError, FileNotFoundError):
         # Return empty dict if file is corrupted or doesn't exist
         return {}
@@ -204,4 +217,50 @@ def format_timestamp(timestamp_str=None):
 
 def format_currency(amount):
     """Format amount as currency"""
-    return f"${amount:.6f}" 
+    return f"${amount:.6f}"
+
+def get_user_chat_file(username):
+    """Get the path to a user's chat file"""
+    return os.path.join(CHAT_DATA_DIR, username, "chats.json")
+
+def save_user_chats(username, chats):
+    """Save chats for a specific user"""
+    # Ensure user directory exists
+    user_dir = os.path.join(CHAT_DATA_DIR, username)
+    os.makedirs(user_dir, exist_ok=True)
+    
+    # Convert datetime objects to strings if needed
+    serializable_chats = {}
+    for chat_id, chat in chats.items():
+        serializable_chats[chat_id] = chat
+    
+    # Save to file
+    chat_file = get_user_chat_file(username)
+    with open(chat_file, 'w') as f:
+        json.dump(serializable_chats, f, indent=2)
+    
+    # Also store in session state for Streamlit Cloud
+    key = f"user_chats_{username}"
+    st.session_state[key] = serializable_chats
+
+def load_user_chats(username):
+    """Load chats for a specific user"""
+    # First try to get from session state (for Streamlit Cloud)
+    key = f"user_chats_{username}"
+    if key in st.session_state:
+        return st.session_state[key]
+    
+    # Otherwise load from file
+    chat_file = get_user_chat_file(username)
+    if not os.path.exists(chat_file):
+        return {}
+    
+    try:
+        with open(chat_file, 'r') as f:
+            chats = json.load(f)
+            # Store in session state for future use
+            st.session_state[key] = chats
+            return chats
+    except (json.JSONDecodeError, FileNotFoundError):
+        # Return empty dict if file is corrupted or doesn't exist
+        return {} 

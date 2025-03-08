@@ -38,11 +38,18 @@ def check_password():
         st.error("Error in ALLOWED_USERS configuration. Please check the JSON format.")
         return False
     
+    # Check if we have allowed_users in session state (for users created during this session)
+    if "allowed_users" in st.session_state:
+        allowed_users.update(st.session_state["allowed_users"])
+    
     # Load users from users.json as well (for users who signed up)
     user_data = load_user_data()
     for username, user_info in user_data.items():
         if "password" in user_info and username not in allowed_users:
             allowed_users[username] = user_info["password"]
+    
+    # Store the combined allowed_users in session state for future use
+    st.session_state["allowed_users"] = allowed_users
     
     def credentials_entered():
         """Checks whether credentials entered by the user are correct."""
@@ -51,7 +58,10 @@ def check_password():
         username = st.session_state["auth_username"]
         password = st.session_state["auth_password"]
         
-        if username in allowed_users and hmac.compare_digest(password, allowed_users[username]):
+        # Get the latest allowed_users from session state
+        current_allowed_users = st.session_state.get("allowed_users", {})
+        
+        if username in current_allowed_users and password == current_allowed_users[username]:
             st.session_state["authenticated"] = True
             st.session_state["current_user"] = username
             
@@ -168,6 +178,11 @@ def show_signup_form():
             user_dir = os.path.join("chat_data", username)
             os.makedirs(user_dir, exist_ok=True)
             
+            # Also add to allowed_users for immediate login
+            if "allowed_users" not in st.session_state:
+                st.session_state["allowed_users"] = {}
+            st.session_state["allowed_users"][username] = password
+            
             # Set success message and reset form
             st.session_state["signup_success"] = True
             st.session_state["signup_mode"] = False
@@ -177,7 +192,7 @@ def show_signup_form():
             st.session_state["signup_password"] = ""
             st.session_state["signup_confirm_password"] = ""
             st.session_state["signup_display_name"] = ""
-    
+
     # Custom CSS for better UI
     st.markdown("""
         <style>
