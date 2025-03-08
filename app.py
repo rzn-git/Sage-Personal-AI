@@ -466,7 +466,7 @@ if auth_enabled:
         
         with col2:
             st.image("https://img.freepik.com/free-vector/ai-technology-brain-background-smart-digital-transformation_53876-124672.jpg", 
-                    use_column_width=True)
+                    use_container_width=True)
             
             st.markdown("""
             ### Welcome to Sage AI
