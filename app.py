@@ -468,13 +468,23 @@ if auth_enabled:
             
             # Login button
             if st.button("Login", key="app_login_button"):
+                # Add debugging
+                st.write(f"DEBUG - Login button clicked")
+                st.write(f"DEBUG - app_username: {st.session_state.get('app_username', 'not set')}")
+                st.write(f"DEBUG - app_password: {'*****' if 'app_password' in st.session_state else 'not set'}")
+                
                 # Copy values to the keys expected by auth_config.py
                 if "app_username" in st.session_state and "app_password" in st.session_state:
                     st.session_state["auth_username"] = st.session_state["app_username"]
                     st.session_state["auth_password"] = st.session_state["app_password"]
+                    
+                    # Add debugging
+                    st.write(f"DEBUG - Copied credentials to auth_username and auth_password")
                 
                 if not check_password():
                     st.error("Invalid username or password")
+                    # Add debugging
+                    st.write(f"DEBUG - check_password() returned False")
             
             # Toggle signup mode
             def enable_signup_mode():
