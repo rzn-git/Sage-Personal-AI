@@ -22,89 +22,17 @@ def check_password():
         # Rerun outside of the callback
         st.rerun()
     
+    # If already authenticated, return True
+    if st.session_state.get("authenticated", False):
+        return True
+    
     # Check if we're in signup mode
     if st.session_state.get("signup_mode", False):
         return show_signup_form()
     
-    # Try to get allowed users from Streamlit secrets first, then fall back to environment variables
-    allowed_users_str = None
+    # Initialize allowed_users from various sources
+    initialize_allowed_users()
     
-    # Check if we have secrets configured
-    if "auth" in st.secrets and "allowed_users" in st.secrets["auth"]:
-        allowed_users_str = st.secrets["auth"]["allowed_users"]
-    else:
-        # Fall back to environment variable
-        allowed_users_str = os.environ.get("ALLOWED_USERS")
-    
-    # Check if ALLOWED_USERS is set
-    if not allowed_users_str:
-        st.error("No users configured. Please set the ALLOWED_USERS environment variable or secret.")
-        st.info("For Streamlit Cloud deployment, configure this in the app settings.")
-        return False
-        
-    try:
-        allowed_users = json.loads(allowed_users_str)
-    except json.JSONDecodeError:
-        st.error("Error in ALLOWED_USERS configuration. Please check the JSON format.")
-        return False
-    
-    # Check if we have allowed_users in session state (for users created during this session)
-    if "allowed_users" in st.session_state:
-        allowed_users.update(st.session_state["allowed_users"])
-    
-    # Load users from users.json as well (for users who signed up)
-    user_data = load_user_data()
-    for username, user_info in user_data.items():
-        if "password" in user_info and username not in allowed_users:
-            allowed_users[username] = user_info["password"]
-    
-    # Store the combined allowed_users in session state for future use
-    st.session_state["allowed_users"] = allowed_users
-    
-    def credentials_entered():
-        """Checks whether credentials entered by the user are correct."""
-        # Get username and password from session state
-        # Use auth_username and auth_password to avoid conflicts with app.py
-        username = st.session_state["auth_username"]
-        password = st.session_state["auth_password"]
-        
-        # Add debugging - keep only the most important statement
-        st.write(f"DEBUG - Login attempt for username: {username}")
-        
-        # Get the latest allowed_users from session state
-        current_allowed_users = st.session_state.get("allowed_users", {})
-        
-        if username in current_allowed_users and password == current_allowed_users[username]:
-            st.session_state["authenticated"] = True
-            st.session_state["current_user"] = username
-            
-            # Load user profile data
-            load_user_profile(username)
-            
-            # Initialize chat-related session state variables
-            if "chats" not in st.session_state:
-                st.session_state.chats = {}
-            
-            if "current_chat_id" not in st.session_state:
-                st.session_state.current_chat_id = None
-            
-            # Don't store the password
-            del st.session_state["auth_password"]
-            del st.session_state["auth_username"]
-            
-            # Add debugging - keep only the most important statement
-            st.write(f"DEBUG - Authentication successful for: {username}")
-            
-            # Set a flag to indicate that we need to rerun after the callback
-            st.session_state["need_rerun"] = True
-        else:
-            st.session_state["authenticated"] = False
-            st.write(f"DEBUG - Authentication failed for: {username}")
-
-    # Don't show the login form if already authenticated
-    if st.session_state.get("authenticated", False):
-        return True
-        
     # Show login form
     st.title("🔆 Sage: Personal AI")
     st.write("Please enter your credentials to access this application.")
@@ -138,6 +66,46 @@ def check_password():
             st.error("😕 Invalid username or password")
     
     return False
+
+def initialize_allowed_users():
+    """Initialize allowed_users from various sources"""
+    # Try to get allowed users from Streamlit secrets first, then fall back to environment variables
+    allowed_users_str = None
+    
+    # Check if we have secrets configured
+    if "auth" in st.secrets and "allowed_users" in st.secrets["auth"]:
+        allowed_users_str = st.secrets["auth"]["allowed_users"]
+    else:
+        # Fall back to environment variable
+        allowed_users_str = os.environ.get("ALLOWED_USERS")
+    
+    # Check if ALLOWED_USERS is set
+    if not allowed_users_str:
+        st.error("No users configured. Please set the ALLOWED_USERS environment variable or secret.")
+        st.info("For Streamlit Cloud deployment, configure this in the app settings.")
+        return
+        
+    try:
+        allowed_users = json.loads(allowed_users_str)
+    except json.JSONDecodeError:
+        st.error("Error in ALLOWED_USERS configuration. Please check the JSON format.")
+        return
+    
+    # Check if we have allowed_users in session state (for users created during this session)
+    if "allowed_users" in st.session_state:
+        allowed_users.update(st.session_state["allowed_users"])
+    
+    # Load users from users.json as well (for users who signed up)
+    user_data = load_user_data()
+    for username, user_info in user_data.items():
+        if "password" in user_info and username not in allowed_users:
+            allowed_users[username] = user_info["password"]
+    
+    # Store the combined allowed_users in session state for future use
+    st.session_state["allowed_users"] = allowed_users
+    
+    # Add debugging
+    st.write(f"DEBUG - Initialized allowed_users: {allowed_users}")
 
 def set_signup_mode(enabled):
     """Set whether we're in signup mode"""
@@ -379,5 +347,54 @@ def update_user_profile():
         return True
     
     return False
+
+def credentials_entered():
+    """Checks whether credentials entered by the user are correct."""
+    # Get username and password from session state
+    # Use auth_username and auth_password to avoid conflicts with app.py
+    if "auth_username" not in st.session_state or "auth_password" not in st.session_state:
+        st.write(f"DEBUG - auth_username or auth_password not in session state")
+        return False
+    
+    username = st.session_state["auth_username"]
+    password = st.session_state["auth_password"]
+    
+    # Add debugging - keep only the most important statement
+    st.write(f"DEBUG - Login attempt for username: {username}")
+    
+    # Get the latest allowed_users from session state
+    current_allowed_users = st.session_state.get("allowed_users", {})
+    st.write(f"DEBUG - Current allowed_users: {current_allowed_users}")
+    
+    if username in current_allowed_users and password == current_allowed_users[username]:
+        st.write(f"DEBUG - Username and password match")
+        st.session_state["authenticated"] = True
+        st.session_state["current_user"] = username
+        
+        # Load user profile data
+        load_user_profile(username)
+        
+        # Initialize chat-related session state variables
+        if "chats" not in st.session_state:
+            st.session_state.chats = {}
+        
+        if "current_chat_id" not in st.session_state:
+            st.session_state.current_chat_id = None
+        
+        # Don't store the password
+        del st.session_state["auth_password"]
+        del st.session_state["auth_username"]
+        
+        # Add debugging - keep only the most important statement
+        st.write(f"DEBUG - Authentication successful for: {username}")
+        
+        # Set a flag to indicate that we need to rerun after the callback
+        st.session_state["need_rerun"] = True
+        return True
+    else:
+        st.write(f"DEBUG - Username or password mismatch")
+        st.session_state["authenticated"] = False
+        st.write(f"DEBUG - Authentication failed for: {username}")
+        return False
 
             #

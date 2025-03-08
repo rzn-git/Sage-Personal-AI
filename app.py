@@ -98,7 +98,7 @@ except Exception as e:
 
 # Import authentication
 try:
-    from auth_config import check_password, set_usage_quota, get_profile_picture_html, update_user_profile, set_signup_mode
+    from auth_config import check_password, set_usage_quota, get_profile_picture_html, update_user_profile, set_signup_mode, credentials_entered, initialize_allowed_users
     auth_enabled = True
     st.write(f"DEBUG - Authentication enabled: {auth_enabled}")
 except ImportError as e:
@@ -111,6 +111,10 @@ except ImportError as e:
     def update_user_profile():
         return True
     def set_signup_mode(enabled):
+        return True
+    def credentials_entered():
+        return True
+    def initialize_allowed_users():
         return True
 
 # Custom CSS for better UI
@@ -451,6 +455,13 @@ if auth_enabled:
     if "signup_mode" not in st.session_state:
         st.session_state["signup_mode"] = False
     
+    # Check if we need to rerun after a successful login
+    if st.session_state.get("need_rerun", False):
+        # Clear the flag
+        del st.session_state["need_rerun"]
+        # Rerun outside of the callback
+        st.rerun()
+    
     # Add debugging - keep only the most important statements
     st.write(f"DEBUG - auth_enabled: {auth_enabled}")
     st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
@@ -494,10 +505,24 @@ if auth_enabled:
                     # Add debugging
                     st.write(f"DEBUG - Copied credentials to auth_username and auth_password")
                 
-                if not check_password():
+                # Initialize allowed_users before attempting to log in
+                initialize_allowed_users()
+                
+                # Call credentials_entered directly
+                credentials_entered()
+                
+                # Check if we need to rerun after a successful login
+                if st.session_state.get("need_rerun", False):
+                    # Clear the flag
+                    del st.session_state["need_rerun"]
+                    # Rerun outside of the callback
+                    st.rerun()
+                
+                # Check if authentication was successful
+                if not st.session_state.get("authenticated", False):
                     st.error("Invalid username or password")
                     # Add debugging
-                    st.write(f"DEBUG - check_password() returned False")
+                    st.write(f"DEBUG - Authentication failed")
             
             # Toggle signup mode
             def enable_signup_mode():
