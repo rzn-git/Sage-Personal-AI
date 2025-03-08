@@ -5,7 +5,16 @@ import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 from anthropic import Anthropic
-from utils import save_chats, load_chats, get_chat_title_from_content, format_timestamp
+from utils import (
+    save_chats, 
+    load_chats, 
+    get_chat_title_from_content, 
+    format_timestamp, 
+    num_tokens_from_string, 
+    update_user_spending,
+    format_currency,
+    load_user_data
+)
 from error_handler import handle_error, api_error_handler, APIError, ModelNotAvailableError
 
 # Load environment variables
@@ -29,11 +38,15 @@ except Exception as e:
 
 # Import authentication
 try:
-    from auth_config import check_password, set_usage_quota
+    from auth_config import check_password, set_usage_quota, get_profile_picture_html, update_user_profile
     auth_enabled = True
 except ImportError:
     auth_enabled = False
     def set_usage_quota():
+        return True
+    def get_profile_picture_html():
+        return ""
+    def update_user_profile():
         return True
 
 # Set page configuration
@@ -48,206 +61,221 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stButton button {
-        background-color: #e9ebef;
-        color: black;
-        border-radius: 5px;
-        border: none;
-        padding: 10px 24px;
-        font-size: 16px;
-        text-align: left;
         width: 100%;
+        border-radius: 5px;
+        height: 2.5em;
+        background-color: #f0f2f6;
+        border: none;
+        margin-bottom: 5px;
     }
     .stButton button:hover {
-        background-color: #d3d7df;
+        background-color: #e0e2e6;
     }
-    .chat-message {
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
+    .user-info {
         display: flex;
+        align-items: center;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border-radius: 10px;
+        margin-bottom: 15px;
     }
-    .chat-message.user {
-        background-color: #2b313e;
-        margin-left: auto;
-        margin-right: 0;
-        text-align: right;
-        max-width: 80%;
+    .user-avatar {
+        margin-right: 15px;
     }
-    .chat-message.assistant {
-        background-color: #475063;
-        margin-right: auto;
-        margin-left: 0;
-        text-align: left;
-        max-width: 80%;
+    .user-details {
+        flex-grow: 1;
     }
-    .stTextInput input {
+    .user-name {
+        font-weight: bold;
+        font-size: 1.1em;
+        margin-bottom: 5px;
+    }
+    .user-spending {
+        color: #555;
+        font-size: 0.9em;
+    }
+    .spending-details {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f5f5f5;
         border-radius: 5px;
-        color: black;
+        font-size: 0.9em;
     }
-    .stSelectbox {
-        border-radius: 5px;
+    .new-chat-button {
+        margin-bottom: 15px;
     }
-    .stSelectbox > div > div {
-        background-color: #d3d7df;
-        border-radius: 5px;
-        color: black;
+    .sidebar-footer {
+        position: absolute;
+        bottom: 80px;
+        width: calc(100% - 40px);
+        padding: 0 20px;
     }
-    .stMarkdown h3 {
-        margin-top: 1rem;
-        margin-bottom: 0.5rem;
-        text-align: left;
-        color: black;
+    .settings-button {
+        position: absolute;
+        bottom: 20px;
+        width: calc(100% - 40px);
+        padding: 0 20px;
     }
-    .stCaption {
-        font-style: italic;
-        margin-bottom: 1rem;
-        text-align: left;
-        color: black;
+    .settings-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
     }
-    .sidebar .stButton button {
-        text-align: left !important;
-        justify-content: flex-start !important;
-        align-items: flex-start !important;
-        display: flex !important;
-        width: 100% !important;
-        min-width: 100% !important;
-        max-width: 100% !important;
+    .settings-field {
+        margin-bottom: 15px;
     }
-    
-    /* Right-align user messages and avatar */
-    [data-testid="stChatMessageContent"] {
-        width: 100%;
+    .refresh-button {
+        text-align: center;
+        margin-bottom: 15px;
+        margin-top: 5px;
     }
-    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] {
-        display: flex;
-        flex-direction: column;
-    }
-    [data-testid="stChatMessage"].user [data-testid="stChatMessageContent"] {
-        align-items: flex-end;
-    }
-    [data-testid="stChatMessage"].assistant [data-testid="stChatMessageContent"] {
-        align-items: flex-start;
-    }
-    
-    /* Flip the user avatar to the right side */
-    [data-testid="stChatMessage"].user {
-        flex-direction: row-reverse;
-    }
-    [data-testid="stChatMessage"].user > div:first-child {
-        margin-right: 0;
-        margin-left: 0.5rem;
-    }
-    
-    /* Make user messages have a different color */
-    [data-testid="stChatMessage"].user [data-testid="stChatMessageContent"] > div {
-        background-color: #3182ce;
-        color: black;
-        border-radius: 1rem 0 1rem 1rem;
-    }
-    
-    /* Style assistant messages */
-    [data-testid="stChatMessage"].assistant [data-testid="stChatMessageContent"] > div {
-        background-color: #4a5568;
-        color: black;
-        border-radius: 0 1rem 1rem 1rem;
-    }
-    
-    /* Ensure chat history container has fixed width */
-    .sidebar [data-testid="stVerticalBlock"] {
-        width: 100% !important;
-    }
-    
-    /* Ensure all buttons in the sidebar have fixed width */
-    .sidebar .stButton {
-        width: 100% !important;
-    }
-    
-    /* Fix the width of the button container in the sidebar */
-    .sidebar [data-testid="stHorizontalBlock"] {
-        width: 100% !important;
-    }
-    
-    /* Fix the width of columns in the sidebar */
-    .sidebar [data-testid="column"] {
-        width: 100% !important;
-        min-width: 100% !important;
-        max-width: 100% !important;
-    }
-    
-    /* Ensure chat history buttons have fixed width and consistent appearance */
-    .sidebar .stButton button {
-        width: 100% !important;
-        min-width: 100% !important;
-        max-width: 100% !important;
-        height: 40px !important;
-        min-height: 40px !important;
-        max-height: 40px !important;
-        overflow: hidden !important;
-    }
-    
-    .sidebar .stButton button span {
-        text-align: left !important;
-        width: 100% !important;
-        display: block !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-    }
-    
-    /* Make all text black */
-    body, p, span, h1, h2, h3, h4, h5, h6, div, label, button {
-        color: black !important;
-    }
-    
-    /* Ensure chat history titles are left-aligned */
-    .sidebar h3 {
-        text-align: left !important;
+    .refresh-button button {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.9rem;
+        line-height: 1.2;
+        border-radius: 0.25rem;
+        height: auto;
+        display: inline-block;
+        width: auto !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Function to get user-specific chat file path
+def get_user_chat_file(username):
+    """Get the chat file path for a specific user"""
+    import os
+    from utils import CHAT_DATA_DIR
+    # Create user-specific directory if it doesn't exist
+    user_dir = os.path.join(CHAT_DATA_DIR, username)
+    if not os.path.exists(user_dir):
+        os.makedirs(user_dir)
+    return os.path.join(user_dir, "chats.json")
+
+# Function to load user-specific chats
+def load_user_chats(username):
+    """Load chats for a specific user"""
+    import json
+    chat_file = get_user_chat_file(username)
+    if not os.path.exists(chat_file):
+        return {}
+    
+    try:
+        with open(chat_file, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        # Return empty dict if file is corrupted or doesn't exist
+        return {}
+
+# Function to save user-specific chats
+def save_user_chats(username, chats):
+    """Save chats for a specific user"""
+    import json
+    chat_file = get_user_chat_file(username)
+    with open(chat_file, 'w') as f:
+        json.dump(chats, f, indent=2)
+
+# Function to refresh user spending data
+def refresh_spending_data():
+    """Refresh the user's spending data from the database"""
+    if not st.session_state.get("authenticated", False):
+        return
+    
+    username = st.session_state.get("current_user")
+    if not username:
+        return
+    
+    # Load fresh user data
+    user_data = load_user_data()
+    if username in user_data:
+        # Update session state with fresh data
+        st.session_state["user_profile"] = user_data[username]
+        # Set a flag to show a success message
+        st.session_state["refresh_success"] = True
+
+# Initialize session state
+if "model" not in st.session_state:
+    st.session_state.model = "gpt-3.5-turbo"
+
+if "show_settings" not in st.session_state:
+    st.session_state.show_settings = False
+
+if "refresh_success" not in st.session_state:
+    st.session_state.refresh_success = False
+
 # Define available models
 MODELS = {
-    "OpenAI gpt-4o-mini": {"provider": "openai", "model": "gpt-4o-mini"}, 
-    "Anthropic claude-3-5-haiku-20241022": {"provider": "anthropic", "model": "claude-3-5-haiku-20241022"},
-    "OpenAI o3-mini": {"provider": "openai", "model": "o3-mini"},    
-    "OpenAI o1-mini": {"provider": "openai", "model": "o1-mini"},           
-    "OpenAI gpt-4o": {"provider": "openai", "model": "gpt-4o"}, 
-    "Anthropic claude-3-7-sonnet-20250219": {"provider": "anthropic", "model": "claude-3-7-sonnet-20250219"},
-    "OpenAI o1": {"provider": "openai", "model": "o1"}     
+    # OpenAI models
+    "gpt-4o": {"provider": "openai", "name": "GPT-4o"},
+    "gpt-4o-mini": {"provider": "openai", "name": "GPT-4o Mini"},
+    "gpt-4-turbo": {"provider": "openai", "name": "GPT-4 Turbo"},
+    "gpt-3.5-turbo": {"provider": "openai", "name": "GPT-3.5 Turbo"},
+    
+    # Anthropic models
+    "claude-3-opus": {"provider": "anthropic", "name": "Claude 3 Opus"},
+    "claude-3-sonnet": {"provider": "anthropic", "name": "Claude 3 Sonnet"},
+    "claude-3-haiku": {"provider": "anthropic", "name": "Claude 3 Haiku"},
 }
 
-# Initialize session state variables
-if "chats" not in st.session_state:
-    st.session_state.chats = load_chats()
+# Function to toggle settings view
+def toggle_settings():
+    st.session_state.show_settings = not st.session_state.show_settings
 
-if "current_chat_id" not in st.session_state:
-    st.session_state.current_chat_id = None
+# Function to update user settings
+def update_settings():
+    if not st.session_state.get("authenticated", False):
+        return
+    
+    username = st.session_state.get("current_user")
+    if not username:
+        return
+    
+    # Get values from session state
+    new_password = st.session_state.get("new_password", "")
+    confirm_password = st.session_state.get("confirm_password", "")
+    
+    # Validate inputs
+    if new_password and new_password != confirm_password:
+        st.session_state["settings_error"] = "Passwords do not match"
+        return
+    
+    # Update user data
+    from utils import load_user_data, save_user_data
+    user_data = load_user_data()
+    
+    if username in user_data:
+        # Update password if provided
+        if new_password:
+            user_data[username]["password"] = new_password
+        
+        # Save updated user data
+        save_user_data(user_data)
+        st.session_state["settings_success"] = True
 
-if "model" not in st.session_state:
-    st.session_state.model = list(MODELS.keys())[0]
-
-# Check authentication if enabled
-if auth_enabled and not check_password():
-    st.stop()  # Stop execution if authentication fails
-
-# Check usage quota
-if not set_usage_quota():
-    st.stop()  # Stop execution if quota exceeded
-
-# Function to create a new chat
+# Function to create a new chat - moved up before it's called
 @handle_error
 def create_new_chat():
+    # Check usage quota
+    if not set_usage_quota():
+        return None
+    
+    # Get current username
+    username = st.session_state.get("current_user")
+    if not username:
+        return None
+    
     chat_id = str(uuid.uuid4())
-    timestamp = format_timestamp()
     st.session_state.chats[chat_id] = {
-        "id": chat_id,
-        "title": f"New Chat ({timestamp})",
+        "title": "New Chat",
         "messages": [],
-        "created_at": timestamp
+        "created_at": datetime.datetime.now().isoformat(),
+        "model": st.session_state.model,
+        "user": username  # Add user ownership to the chat
     }
     st.session_state.current_chat_id = chat_id
-    save_chats(st.session_state.chats)
+    
+    # Save user-specific chats
+    save_user_chats(username, st.session_state.chats)
     return chat_id
 
 # Function to get chat response from OpenAI
@@ -256,7 +284,11 @@ def get_openai_response(messages, model):
     # Track API usage
     if "api_calls_today" in st.session_state:
         st.session_state.api_calls_today += 1
-        
+    
+    # Calculate input tokens
+    input_text = " ".join([msg["content"] for msg in messages])
+    input_tokens = num_tokens_from_string(input_text, model)
+    
     # Check if model is one of the newer models that doesn't support temperature
     o_models = ["o1", "o1-mini", "o3-mini"]
     
@@ -271,7 +303,17 @@ def get_openai_response(messages, model):
         params["temperature"] = 0.7
     
     response = openai_client.chat.completions.create(**params)
-    return response.choices[0].message.content
+    response_text = response.choices[0].message.content
+    
+    # Calculate output tokens
+    output_tokens = num_tokens_from_string(response_text, model)
+    
+    # Update user spending if authenticated
+    if st.session_state.get("authenticated", False) and st.session_state.get("current_user"):
+        username = st.session_state.get("current_user")
+        update_user_spending(username, model, input_tokens, output_tokens)
+    
+    return response_text
 
 # Function to get chat response from Anthropic
 @api_error_handler("anthropic")
@@ -279,7 +321,11 @@ def get_anthropic_response(messages, model):
     # Track API usage
     if "api_calls_today" in st.session_state:
         st.session_state.api_calls_today += 1
-        
+    
+    # Calculate input tokens
+    input_text = " ".join([msg["content"] for msg in messages])
+    input_tokens = num_tokens_from_string(input_text, model)
+    
     # Convert messages to Anthropic format
     anthropic_messages = []
     for msg in messages:
@@ -293,71 +339,159 @@ def get_anthropic_response(messages, model):
         temperature=0.7,
         max_tokens=1000
     )
-    return response.content[0].text
+    response_text = response.content[0].text
+    
+    # Calculate output tokens
+    output_tokens = num_tokens_from_string(response_text, model)
+    
+    # Update user spending if authenticated
+    if st.session_state.get("authenticated", False) and st.session_state.get("current_user"):
+        username = st.session_state.get("current_user")
+        update_user_spending(username, model, input_tokens, output_tokens)
+    
+    return response_text
 
 # Function to get chat response
 @handle_error
 def get_chat_response(messages, model_info):
     provider = model_info["provider"]
-    model = model_info["model"]
+    model = st.session_state.model
     
-    # Check if API keys are available
-    if provider == "openai" and not os.getenv("OPENAI_API_KEY"):
-        raise ModelNotAvailableError("OpenAI API key not found. Please add it to your .env file.")
+    if provider == "openai":
+        return get_openai_response(messages, model)
+    elif provider == "anthropic":
+        return get_anthropic_response(messages, model)
+    else:
+        raise ModelNotAvailableError(f"Provider {provider} not supported")
+
+# Authentication check
+if auth_enabled and not check_password():
+    st.stop()
+
+# Load user-specific chats after authentication
+if "chats" not in st.session_state and st.session_state.get("current_user"):
+    username = st.session_state.get("current_user")
+    st.session_state.chats = load_user_chats(username)
+
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = None
+
+# Settings page
+if st.session_state.show_settings:
+    st.title("Settings")
     
-    if provider == "anthropic" and not os.getenv("ANTHROPIC_API_KEY"):
-        raise ModelNotAvailableError("Anthropic API key not found. Please add it to your .env file.")
+    with st.container():
+        st.markdown('<div class="settings-container">', unsafe_allow_html=True)
+        
+        st.subheader("User Profile Settings")
+        
+        # Display current username (not editable)
+        username = st.session_state.get("current_user", "")
+        display_name = st.session_state.get("user_profile", {}).get("display_name", username)
+        st.info(f"Logged in as: {display_name}")
+        
+        # Password change section
+        st.markdown("### Set a new password for your account")
+        
+        # Password fields
+        st.markdown('<div class="settings-field">', unsafe_allow_html=True)
+        st.text_input("New Password", type="password", key="new_password", 
+                      help="Enter your new password")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div class="settings-field">', unsafe_allow_html=True)
+        st.text_input("Confirm New Password", type="password", key="confirm_password",
+                     help="Confirm your new password")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Save button
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Save Changes", on_click=update_settings, use_container_width=True):
+                pass
+        with col2:
+            if st.button("Back to Chat", on_click=toggle_settings, use_container_width=True):
+                pass
+        
+        # Show error/success messages
+        if "settings_error" in st.session_state and st.session_state["settings_error"]:
+            st.error(st.session_state["settings_error"])
+            st.session_state["settings_error"] = ""
+        
+        if "settings_success" in st.session_state and st.session_state["settings_success"]:
+            st.success("Password updated successfully!")
+            st.session_state["settings_success"] = False
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    try:
-        if provider == "openai":
-            try:
-                return get_openai_response(messages, model)
-            except Exception as e:
-                error_msg = str(e)
-                if "model_not_found" in error_msg or "does not exist" in error_msg:
-                    return f"Error: The model '{model}' is not available or you don't have access to it. Please select a different model."
-                raise
-        elif provider == "anthropic":
-            try:
-                return get_anthropic_response(messages, model)
-            except Exception as e:
-                error_msg = str(e)
-                if "model not found" in error_msg.lower() or "does not exist" in error_msg.lower():
-                    return f"Error: The model '{model}' is not available or you don't have access to it. Please select a different model."
-                raise
-        else:
-            raise ModelNotAvailableError(f"Provider {provider} not supported")
-    except Exception as e:
-        return f"Error: {str(e)}"
+    # Stop rendering the rest of the app
+    st.stop()
 
 # Sidebar
 with st.sidebar:
-    st.title("🔆Sage: Personal AI")
-    
-    # New chat button
-    if st.button("New Chat", use_container_width=True):
-        create_new_chat()
+    # User profile information
+    if st.session_state.get("authenticated", False) and st.session_state.get("user_profile"):
+        user_profile = st.session_state["user_profile"]
+        username = st.session_state.get("current_user", "User")
+        display_name = user_profile.get("display_name", username)
+        total_spending = user_profile.get("total_spending", 0.0)
+        
+        # Display user info
+        st.markdown(
+            f"""
+            <div class="user-info">
+                <div class="user-avatar">
+                    {get_profile_picture_html()}
+                </div>
+                <div class="user-details">
+                    <div class="user-name">{display_name}</div>
+                    <div class="user-spending">Total Spent: {format_currency(total_spending)}</div>
+                </div>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
     
     # Model selection
-    st.markdown("### Select Model")
-    st.session_state.model = st.selectbox(
-        "Choose an AI model",
-        options=list(MODELS.keys()),
-        index=list(MODELS.keys()).index(st.session_state.model),
-        format_func=lambda x: x.replace("OpenAI ", "").replace("Anthropic ", ""),
-        help="Select the AI model to use for generating responses"
+    st.markdown("### Model")
+    model_options = list(MODELS.keys())
+    selected_model = st.selectbox(
+        "Select a model",
+        options=model_options,
+        index=model_options.index(st.session_state.model) if st.session_state.model in model_options else 0,
+        format_func=lambda x: MODELS[x]["name"]
     )
+    
+    if selected_model != st.session_state.model:
+        st.session_state.model = selected_model
     
     # Display provider info
     selected_model_info = MODELS[st.session_state.model]
     st.caption(f"Provider: {selected_model_info['provider'].upper()}")
     
-    # Chat history
+    # New chat button - moved above history
+    st.markdown('<div class="new-chat-button">', unsafe_allow_html=True)
+    if st.button("💬 New Chat", key="new_chat", use_container_width=True):
+        create_new_chat()
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Chat history - only show current user's chats
     if st.session_state.chats:
         st.markdown("### History")
+        
+        # Get current username
+        current_user = st.session_state.get("current_user")
+        
+        # Filter chats to only show those belonging to the current user
+        user_chats = {
+            chat_id: chat for chat_id, chat in st.session_state.chats.items()
+            if chat.get("user") == current_user or "user" not in chat  # Include chats without user field for backward compatibility
+        }
+        
         # Sort chats by creation time (newest first)
         sorted_chats = sorted(
-            st.session_state.chats.items(),
+            user_chats.items(),
             key=lambda x: x[1].get("created_at", ""),
             reverse=True
         )
@@ -372,6 +506,48 @@ with st.sidebar:
                     if st.button(chat["title"], key=f"chat_{chat_id}", use_container_width=True, help="Click to open this chat"):
                         st.session_state.current_chat_id = chat_id
                         st.rerun()
+    
+    # Add spending details at the bottom of the sidebar
+    if st.session_state.get("authenticated", False) and st.session_state.get("user_profile"):
+        st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
+        user_profile = st.session_state["user_profile"]
+        model_usage = user_profile.get("model_usage", {})
+        
+        with st.expander("View Spending Details"):
+            # Add refresh button at the top of the spending details - centered
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.markdown('<div class="refresh-button">', unsafe_allow_html=True)
+                if st.button("🔄 Refresh", key="refresh_spending", help="Refresh spending data", on_click=refresh_spending_data):
+                    pass
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Show success message if refresh was successful
+            if st.session_state.get("refresh_success"):
+                st.success("Spending data refreshed!")
+                st.session_state["refresh_success"] = False
+                # Get updated data
+                user_profile = st.session_state["user_profile"]
+                model_usage = user_profile.get("model_usage", {})
+            
+            st.markdown("<div class='spending-details'>", unsafe_allow_html=True)
+            st.markdown(f"**Total Spending**: {format_currency(user_profile.get('total_spending', 0.0))}")
+            
+            if model_usage:
+                st.markdown("**Model Usage**:")
+                for model, usage in model_usage.items():
+                    st.markdown(f"- **{model}**: {format_currency(usage.get('total_cost', 0.0))}")
+                    st.markdown(f"  - Input tokens: {usage.get('input_tokens', 0):,}")
+                    st.markdown(f"  - Output tokens: {usage.get('output_tokens', 0):,}")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Settings button at the bottom of the sidebar
+    st.markdown('<div class="settings-button">', unsafe_allow_html=True)
+    if st.button("⚙️ Settings", on_click=toggle_settings, use_container_width=True):
+        pass
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Main chat interface
 if st.session_state.current_chat_id is None or st.session_state.current_chat_id not in st.session_state.chats:
@@ -416,7 +592,11 @@ if prompt := st.chat_input("Type your message here..."):
     if len(current_chat["messages"]) == 2:  # After first exchange (user + assistant)
         current_chat["title"] = get_chat_title_from_content(current_chat["messages"][0]["content"])
     
-    # Save chats to disk
-    save_chats(st.session_state.chats)
+    # Save chats to disk - use user-specific save function
+    username = st.session_state.get("current_user")
+    if username:
+        save_user_chats(username, st.session_state.chats)
+    else:
+        save_chats(st.session_state.chats)  # Fallback to global save
 
 
