@@ -107,7 +107,7 @@ def set_signup_mode(enabled):
     st.session_state["signup_mode"] = enabled
     # Force a rerun to show the signup form immediately
     if enabled:
-        st.experimental_rerun()
+        st.rerun()
 
 def show_signup_form():
     """Show the signup form and handle user registration"""
@@ -218,7 +218,7 @@ def show_signup_form():
     
     def back_to_login():
         st.session_state["signup_mode"] = False
-        st.experimental_rerun()
+        st.rerun()
         
     st.button("Back to Login", on_click=back_to_login, key="signup_back_to_login_button")
     

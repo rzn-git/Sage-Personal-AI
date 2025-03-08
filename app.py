@@ -481,7 +481,7 @@ if auth_enabled:
                 st.session_state["signup_mode"] = True
                 
             if st.button("Sign Up", on_click=enable_signup_mode, key="app_signup_button"):
-                st.experimental_rerun()
+                st.rerun()
         
         with col2:
             st.image("https://img.freepik.com/free-vector/ai-technology-brain-background-smart-digital-transformation_53876-124672.jpg", 
