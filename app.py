@@ -98,7 +98,7 @@ except Exception as e:
 
 # Import authentication
 try:
-    from auth_config import check_password, set_usage_quota, get_profile_picture_html, update_user_profile
+    from auth_config import check_password, set_usage_quota, get_profile_picture_html, update_user_profile, set_signup_mode
     auth_enabled = True
 except ImportError:
     auth_enabled = False
@@ -107,6 +107,8 @@ except ImportError:
     def get_profile_picture_html():
         return ""
     def update_user_profile():
+        return True
+    def set_signup_mode(enabled):
         return True
 
 # Custom CSS for better UI
