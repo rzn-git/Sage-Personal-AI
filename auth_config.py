@@ -12,10 +12,15 @@ from utils import load_user_data, save_user_data
 def check_password():
     """Returns `True` if the user had the correct password and is an allowed user."""
     
-    # Add debugging
+    # Add debugging - keep only the most important statement
     st.write(f"DEBUG - check_password called")
-    st.write(f"DEBUG - signup_mode: {st.session_state.get('signup_mode', False)}")
-    st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
+    
+    # Check if we need to rerun after a successful login
+    if st.session_state.get("need_rerun", False):
+        # Clear the flag
+        del st.session_state["need_rerun"]
+        # Rerun outside of the callback
+        st.rerun()
     
     # Check if we're in signup mode
     if st.session_state.get("signup_mode", False):
@@ -63,17 +68,11 @@ def check_password():
         username = st.session_state["auth_username"]
         password = st.session_state["auth_password"]
         
-        # Add debugging
+        # Add debugging - keep only the most important statement
         st.write(f"DEBUG - Login attempt for username: {username}")
         
         # Get the latest allowed_users from session state
         current_allowed_users = st.session_state.get("allowed_users", {})
-        
-        # Add debugging
-        st.write(f"DEBUG - Current allowed_users: {current_allowed_users}")
-        st.write(f"DEBUG - Username in allowed_users: {username in current_allowed_users}")
-        if username in current_allowed_users:
-            st.write(f"DEBUG - Password match: {password == current_allowed_users[username]}")
         
         if username in current_allowed_users and password == current_allowed_users[username]:
             st.session_state["authenticated"] = True
@@ -93,13 +92,11 @@ def check_password():
             del st.session_state["auth_password"]
             del st.session_state["auth_username"]
             
-            # Add debugging
+            # Add debugging - keep only the most important statement
             st.write(f"DEBUG - Authentication successful for: {username}")
-            st.write(f"DEBUG - Authentication state: {st.session_state.get('authenticated', False)}")
-            st.write(f"DEBUG - Current user: {st.session_state.get('current_user', 'None')}")
             
-            # Force a rerun to refresh the page
-            st.rerun()
+            # Set a flag to indicate that we need to rerun after the callback
+            st.session_state["need_rerun"] = True
         else:
             st.session_state["authenticated"] = False
             st.write(f"DEBUG - Authentication failed for: {username}")
@@ -152,6 +149,13 @@ def set_signup_mode(enabled):
 def show_signup_form():
     """Show the signup form and handle user registration"""
     
+    # Check if we need to rerun after a successful signup
+    if st.session_state.get("need_rerun", False):
+        # Clear the flag
+        del st.session_state["need_rerun"]
+        # Rerun outside of the callback
+        st.rerun()
+    
     # Show signup form with title and subtitle
     st.title("🔆 Sage: Personal AI - Sign Up")
     st.write("Create a new account to access this application.")
@@ -175,7 +179,7 @@ def show_signup_form():
         confirm_password = st.session_state["signup_confirm_password"]
         display_name = st.session_state["signup_display_name"] or username
         
-        # Add debugging
+        # Add debugging - keep only the most important statement
         st.write(f"DEBUG - Signup attempt for username: {username}")
         
         # Validate inputs
@@ -204,7 +208,7 @@ def show_signup_form():
                 "last_updated": datetime.datetime.now().isoformat()
             }
             
-            # Add debugging
+            # Add debugging - keep only the most important statement
             st.write(f"DEBUG - Creating new user: {username}")
             
             # Save user data
@@ -218,10 +222,6 @@ def show_signup_form():
             if "allowed_users" not in st.session_state:
                 st.session_state["allowed_users"] = {}
             st.session_state["allowed_users"][username] = password
-            
-            # Add debugging
-            st.write(f"DEBUG - Added to allowed_users: {username}")
-            st.write(f"DEBUG - Current allowed_users: {st.session_state['allowed_users']}")
             
             # Set success message and reset form
             st.session_state["signup_success"] = True
@@ -241,13 +241,11 @@ def show_signup_form():
             # Load user profile data
             load_user_profile(username)
             
-            # Add debugging
+            # Add debugging - keep only the most important statement
             st.write(f"DEBUG - User authenticated after signup: {username}")
-            st.write(f"DEBUG - Authentication state: {st.session_state.get('authenticated', False)}")
-            st.write(f"DEBUG - Current user: {st.session_state.get('current_user', 'None')}")
             
-            # Force a rerun to refresh the page
-            st.rerun()
+            # Set a flag to indicate that we need to rerun after the callback
+            st.session_state["need_rerun"] = True
 
     # Don't show the signup form if already successful
     if st.session_state.get("signup_success", False):

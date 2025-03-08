@@ -451,11 +451,9 @@ if auth_enabled:
     if "signup_mode" not in st.session_state:
         st.session_state["signup_mode"] = False
     
-    # Add debugging
+    # Add debugging - keep only the most important statements
     st.write(f"DEBUG - auth_enabled: {auth_enabled}")
     st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
-    st.write(f"DEBUG - signup_mode: {st.session_state.get('signup_mode', False)}")
-    st.write(f"DEBUG - current_user: {st.session_state.get('current_user', 'None')}")
         
     # Check if the user is authenticated
     if not st.session_state.get("authenticated", False):
@@ -561,21 +559,17 @@ else:
     st.session_state["authenticated"] = True
     st.session_state["current_user"] = username
     
-    # Add debugging
+    # Add debugging - keep only the most important statement
     st.write(f"DEBUG - No authentication, using Guest user")
-    st.write(f"DEBUG - authenticated: {st.session_state.get('authenticated', False)}")
-    st.write(f"DEBUG - current_user: {st.session_state.get('current_user', 'None')}")
 
-# Add debugging
+# Add debugging - keep only the most important statement
 st.write(f"DEBUG - Before chat check - current_chat_id: {st.session_state.get('current_chat_id', 'None')}")
-st.write(f"DEBUG - Before chat check - chats: {st.session_state.get('chats', {})}")
 
 if st.session_state.current_chat_id is None or st.session_state.current_chat_id not in st.session_state.chats:
     create_new_chat()
     
-    # Add debugging
+    # Add debugging - keep only the most important statement
     st.write(f"DEBUG - After create_new_chat - current_chat_id: {st.session_state.get('current_chat_id', 'None')}")
-    st.write(f"DEBUG - After create_new_chat - chats: {st.session_state.get('chats', {})}")
 
 current_chat = st.session_state.chats[st.session_state.current_chat_id]
 
