@@ -28,6 +28,7 @@ var/
 # Chat data - Keep the directory structure but ignore specific user chat files
 # chat_data/
 chat_data/*/*.json
+chat_data/users.json
 
 # Virtual Environment
 venv/
@@ -45,6 +46,7 @@ Thumbs.db
 
 # Logs
 *.log
+app.log
 
 # Streamlit
 /streamlit-delete-after-setup.md

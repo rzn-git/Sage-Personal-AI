@@ -1,29 +1,44 @@
+"""
+Sage: Personal AI - A secure, customizable personal AI assistant
+"""
+import os
 import streamlit as st
 import uuid
-import os
 import datetime
-from dotenv import load_dotenv
+import json
+import logging
 from openai import OpenAI
 from anthropic import Anthropic
+from dotenv import load_dotenv
+from error_handler import handle_error, api_error_handler, APIError, ModelNotAvailableError
 from utils import (
+    num_tokens_from_string, 
+    calculate_cost, 
     save_chats, 
     load_chats, 
-    get_chat_title_from_content, 
-    format_timestamp, 
-    num_tokens_from_string, 
     update_user_spending,
-    format_currency,
-    load_user_data
+    format_timestamp,
+    format_currency
 )
-from error_handler import handle_error, api_error_handler, APIError, ModelNotAvailableError
+
+# Configure logging
+from logging_config import setup_logging
+setup_logging()
+logger = logging.getLogger("personal_chatbot")
 
 # Load environment variables
 load_dotenv()
 
-# Initialize API clients
+# Get API keys from Streamlit secrets or environment variables
 try:
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    # Try to get API keys from Streamlit secrets first
+    if "api_keys" in st.secrets:
+        openai_api_key = st.secrets["api_keys"].get("openai")
+        anthropic_api_key = st.secrets["api_keys"].get("anthropic")
+    else:
+        # Fall back to environment variables
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
     
     if not openai_api_key:
         st.warning("OpenAI API key not found. Some models may not be available.")
@@ -417,194 +432,88 @@ def get_chat_response(messages, model_info):
     else:
         raise ModelNotAvailableError(f"Provider {provider} not supported")
 
-# Authentication check
-if auth_enabled and not check_password():
-    st.stop()
-
-# Load user-specific chats after authentication
-if "chats" not in st.session_state and st.session_state.get("current_user"):
-    username = st.session_state.get("current_user")
-    st.session_state.chats = load_user_chats(username)
-
-if "current_chat_id" not in st.session_state:
-    st.session_state.current_chat_id = None
-
-# Settings page
-if st.session_state.show_settings:
-    st.title("Settings")
-    
-    with st.container():
-        st.markdown('<div class="settings-container">', unsafe_allow_html=True)
-        
-        st.subheader("User Profile Settings")
-        
-        # Display current username (not editable)
-        username = st.session_state.get("current_user", "")
-        display_name = st.session_state.get("user_profile", {}).get("display_name", username)
-        st.info(f"Logged in as: {display_name}")
-        
-        # Password change section
-        st.markdown("### Set a new password for your account")
-        
-        # Password fields
-        st.markdown('<div class="settings-field">', unsafe_allow_html=True)
-        st.text_input("New Password", type="password", key="new_password", 
-                      help="Enter your new password")
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div class="settings-field">', unsafe_allow_html=True)
-        st.text_input("Confirm New Password", type="password", key="confirm_password",
-                     help="Confirm your new password")
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Save button
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("Save Changes", on_click=update_settings, use_container_width=True):
-                pass
-        with col2:
-            if st.button("Back to Chat", on_click=toggle_settings, use_container_width=True):
-                pass
-        
-        # Show error/success messages
-        if "settings_error" in st.session_state and st.session_state["settings_error"]:
-            st.error(st.session_state["settings_error"])
-            st.session_state["settings_error"] = ""
-        
-        if "settings_success" in st.session_state and st.session_state["settings_success"]:
-            st.success("Password updated successfully!")
-            st.session_state["settings_success"] = False
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Stop rendering the rest of the app
-    st.stop()
-
-# Sidebar
-with st.sidebar:
-    # User profile information
-    if st.session_state.get("authenticated", False) and st.session_state.get("user_profile"):
-        user_profile = st.session_state["user_profile"]
-        username = st.session_state.get("current_user", "User")
-        display_name = user_profile.get("display_name", username)
-        total_spending = user_profile.get("total_spending", 0.0)
-        
-        # Display user info
-        st.markdown(
-            f"""
-            <div class="user-info">
-                <div class="user-avatar">
-                    {get_profile_picture_html()}
-                </div>
-                <div class="user-details">
-                    <div class="user-name">{display_name}</div>
-                    <div class="user-spending">Total Spent: {format_currency(total_spending)}</div>
-                </div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-    
-    # Model selection
-    st.markdown("### Model")
-    model_options = list(MODELS.keys())
-    selected_model = st.selectbox(
-        "Select a model",
-        options=model_options,
-        index=model_options.index(st.session_state.model) if st.session_state.model in model_options else 0,
-        format_func=lambda x: MODELS[x]["name"]
-    )
-    
-    if selected_model != st.session_state.model:
-        st.session_state.model = selected_model
-    
-    # Display provider info
-    selected_model_info = MODELS[st.session_state.model]
-    st.caption(f"Provider: {selected_model_info['provider'].upper()}")
-    
-    # New chat button - moved above history
-    st.markdown('<div class="new-chat-button">', unsafe_allow_html=True)
-    if st.button("💬 New Chat", key="new_chat", use_container_width=True):
-        create_new_chat()
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Chat history - only show current user's chats
-    if st.session_state.chats:
-        st.markdown("### History")
-        
-        # Get current username
-        current_user = st.session_state.get("current_user")
-        
-        # Filter chats to only show those belonging to the current user
-        user_chats = {
-            chat_id: chat for chat_id, chat in st.session_state.chats.items()
-            if chat.get("user") == current_user or "user" not in chat  # Include chats without user field for backward compatibility
-        }
-        
-        # Sort chats by creation time (newest first)
-        sorted_chats = sorted(
-            user_chats.items(),
-            key=lambda x: x[1].get("created_at", ""),
-            reverse=True
-        )
-        
-        # Create a container for history buttons to apply consistent styling
-        history_container = st.container()
-        with history_container:
-            for chat_id, chat in sorted_chats:
-                # Create a fixed-width container for each button
-                col1, col2 = st.columns([1, 0.001])  # The second column is just a spacer
-                with col1:
-                    if st.button(chat["title"], key=f"chat_{chat_id}", use_container_width=True, help="Click to open this chat"):
-                        st.session_state.current_chat_id = chat_id
-                        st.rerun()
-    
-    # Add spending details at the bottom of the sidebar
-    if st.session_state.get("authenticated", False) and st.session_state.get("user_profile"):
-        st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
-        user_profile = st.session_state["user_profile"]
-        model_usage = user_profile.get("model_usage", {})
-        
-        with st.expander("View Spending Details"):
-            # Add refresh button at the top of the spending details - centered
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                st.markdown('<div class="refresh-button">', unsafe_allow_html=True)
-                if st.button("🔄 Refresh", key="refresh_spending", help="Refresh spending data", on_click=refresh_spending_data):
-                    pass
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Show success message if refresh was successful
-            if st.session_state.get("refresh_success"):
-                st.success("Spending data refreshed!")
-                st.session_state["refresh_success"] = False
-                # Get updated data
-                user_profile = st.session_state["user_profile"]
-                model_usage = user_profile.get("model_usage", {})
-            
-            st.markdown("<div class='spending-details'>", unsafe_allow_html=True)
-            st.markdown(f"**Total Spending**: {format_currency(user_profile.get('total_spending', 0.0))}")
-            
-            if model_usage:
-                st.markdown("**Model Usage**:")
-                for model, usage in model_usage.items():
-                    st.markdown(f"- **{model}**: {format_currency(usage.get('total_cost', 0.0))}")
-                    st.markdown(f"  - Input tokens: {usage.get('input_tokens', 0):,}")
-                    st.markdown(f"  - Output tokens: {usage.get('output_tokens', 0):,}")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Settings button at the bottom of the sidebar
-    st.markdown('<div class="settings-button">', unsafe_allow_html=True)
-    if st.button("⚙️ Settings", on_click=toggle_settings, use_container_width=True):
-        pass
-    st.markdown('</div>', unsafe_allow_html=True)
-
 # Main chat interface
+if auth_enabled:
+    # Check if the user is authenticated
+    if not st.session_state.get("authenticated", False):
+        # Show login form
+        st.title("🔆 Sage: Personal AI")
+        
+        # Create columns for login form
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.subheader("Login")
+            
+            # Username input
+            st.text_input("Username", key="username")
+            
+            # Password input
+            st.text_input("Password", type="password", key="password")
+            
+            # Login button
+            if st.button("Login"):
+                if not check_password():
+                    st.error("Invalid username or password")
+            
+            # Toggle signup mode
+            if st.button("Sign Up"):
+                set_signup_mode(True)
+        
+        with col2:
+            st.image("https://img.freepik.com/free-vector/ai-technology-brain-background-smart-digital-transformation_53876-124672.jpg", 
+                    use_column_width=True)
+            
+            st.markdown("""
+            ### Welcome to Sage AI
+            
+            Your personal AI assistant powered by:
+            - OpenAI GPT models
+            - Anthropic Claude models
+            
+            Securely chat with advanced AI models and keep track of your conversations.
+            """)
+        
+        # Show features
+        st.markdown("---")
+        st.subheader("Features")
+        
+        feature_col1, feature_col2, feature_col3 = st.columns(3)
+        
+        with feature_col1:
+            st.markdown("### 🔒 Secure")
+            st.markdown("User authentication and data protection")
+        
+        with feature_col2:
+            st.markdown("### 💬 Multiple Models")
+            st.markdown("Choose from various AI models")
+        
+        with feature_col3:
+            st.markdown("### 📊 Usage Tracking")
+            st.markdown("Monitor your API usage and costs")
+        
+        # Show footer
+        st.markdown("---")
+        st.markdown("© 2025 Sage AI. All rights reserved.")
+        
+        # Exit early if not authenticated
+        st.stop()
+    
+    # If we get here, user is authenticated
+    username = st.session_state.get("current_user", "Guest")
+    
+    # Load user's chats
+    if username and username != "Guest":
+        user_chats = load_user_chats(username)
+        if user_chats:
+            st.session_state.chats = user_chats
+else:
+    # No authentication, set default username
+    username = "Guest"
+    st.session_state["authenticated"] = True
+    st.session_state["current_user"] = username
+
 if st.session_state.current_chat_id is None or st.session_state.current_chat_id not in st.session_state.chats:
-    # Create a new chat if none exists
     create_new_chat()
 
 current_chat = st.session_state.chats[st.session_state.current_chat_id]

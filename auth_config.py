@@ -16,13 +16,27 @@ def check_password():
     if st.session_state.get("signup_mode", False):
         return show_signup_form()
     
-    # Get allowed users from environment variable (JSON string)
-    allowed_users_str = os.environ.get("ALLOWED_USERS", '{"admin": "admin"}')
+    # Try to get allowed users from Streamlit secrets first, then fall back to environment variables
+    allowed_users_str = None
+    
+    # Check if we have secrets configured
+    if "auth" in st.secrets and "allowed_users" in st.secrets["auth"]:
+        allowed_users_str = st.secrets["auth"]["allowed_users"]
+    else:
+        # Fall back to environment variable
+        allowed_users_str = os.environ.get("ALLOWED_USERS")
+    
+    # Check if ALLOWED_USERS is set
+    if not allowed_users_str:
+        st.error("No users configured. Please set the ALLOWED_USERS environment variable or secret.")
+        st.info("For Streamlit Cloud deployment, configure this in the app settings.")
+        return False
+        
     try:
         allowed_users = json.loads(allowed_users_str)
     except json.JSONDecodeError:
-        st.error("Error in ALLOWED_USERS configuration")
-        allowed_users = {"admin": "admin"}
+        st.error("Error in ALLOWED_USERS configuration. Please check the JSON format.")
+        return False
     
     # Load users from users.json as well (for users who signed up)
     user_data = load_user_data()
