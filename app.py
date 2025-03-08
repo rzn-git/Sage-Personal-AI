@@ -257,6 +257,13 @@ if "show_settings" not in st.session_state:
 if "refresh_success" not in st.session_state:
     st.session_state.refresh_success = False
 
+# Initialize chat-related session state variables
+if "chats" not in st.session_state:
+    st.session_state.chats = {}
+
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = None
+
 # Define available models
 MODELS = {
     "gpt-4o-mini": {"provider": "openai", "name": "gpt-4o-mini"},

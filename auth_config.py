@@ -218,6 +218,13 @@ def show_signup_form():
             st.session_state["authenticated"] = True
             st.session_state["current_user"] = username
             
+            # Initialize chat-related session state variables
+            if "chats" not in st.session_state:
+                st.session_state.chats = {}
+            
+            if "current_chat_id" not in st.session_state:
+                st.session_state.current_chat_id = None
+            
             # Load user profile data
             load_user_profile(username)
             
