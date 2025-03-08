@@ -205,19 +205,16 @@ if "refresh_success" not in st.session_state:
 
 # Define available models
 MODELS = {
-    # OpenAI models
-    "gpt-4o": {"provider": "openai", "name": "GPT-4o"},
-    "gpt-4o-mini": {"provider": "openai", "name": "GPT-4o Mini"},
-    "gpt-4-turbo": {"provider": "openai", "name": "GPT-4 Turbo"},
-    "gpt-3.5-turbo": {"provider": "openai", "name": "GPT-3.5 Turbo"},
-    
-    # Anthropic models
-    "claude-3-opus": {"provider": "anthropic", "name": "Claude 3 Opus"},
-    "claude-3-sonnet": {"provider": "anthropic", "name": "Claude 3 Sonnet"},
-    "claude-3-haiku": {"provider": "anthropic", "name": "Claude 3 Haiku"},
+    "gpt-4o-mini": {"provider": "openai", "name": "gpt-4o-mini"},
+    "claude-3-5-haiku-20241022": {"provider": "anthropic", "name": "claude-3-5-haiku-20241022"},
+    "o3-mini": {"provider": "openai", "name": "o3-mini"},
+    "o1-mini": {"provider": "openai", "name": "o1-mini"},
+    "gpt-4o": {"provider": "openai", "name": "gpt-4o"},
+    "claude-3-7-sonnet-20250219": {"provider": "anthropic", "name": "claude-3-7-sonnet-20250219"},
+    "o1": {"provider": "openai", "name": "o1"}
 }
 
-# Function to toggle settings view
+# Function to toggle settings
 def toggle_settings():
     st.session_state.show_settings = not st.session_state.show_settings
 

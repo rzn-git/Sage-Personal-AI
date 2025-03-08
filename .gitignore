@@ -43,5 +43,6 @@ Thumbs.db
 # Logs
 *.log
 
-
-streamlit-delete-after-setup.md
+# Streamlit
+/streamlit-delete-after-setup.md
+/streamlit-setup.md
