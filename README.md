@@ -13,35 +13,14 @@ A powerful AI chat assistant built with Streamlit that supports both OpenAI and 
 
 ## Deployment to Streamlit Cloud
 
-### 1. Fork or Clone this Repository
+For detailed deployment instructions, see [streamlit_cloud_setup.md](streamlit_cloud_setup.md).
 
-First, fork or clone this repository to your GitHub account.
+### Quick Start
 
-### 2. Set Up Streamlit Cloud
-
-1. Go to [Streamlit Cloud](https://streamlit.io/cloud)
-2. Sign in with your GitHub account
-3. Click "New app"
-4. Select this repository, branch (main), and the main file (app.py)
-
-### 3. Configure Environment Variables
-
-In the Streamlit Cloud deployment settings, add the following environment variables:
-
-- `OPENAI_API_KEY`: Your OpenAI API key (optional if users will provide their own)
-- `ANTHROPIC_API_KEY`: Your Anthropic API key (optional if users will provide their own)
-- `ALLOWED_USERS`: JSON string of username:password pairs, e.g., `{"admin":"admin_password","user1":"password1"}`
-- `MAX_DAILY_CALLS`: Maximum number of API calls allowed per day (default: 50)
-
-### 4. Deploy
-
-Click "Deploy" and your app will be live on Streamlit Cloud!
-
-### 5. User Management
-
-- The app supports multiple users as defined in the `ALLOWED_USERS` environment variable
-- Each user has their own chat history and usage tracking
-- Users can also sign up if enabled in the app
+1. Fork or clone this repository to your GitHub account
+2. Sign up for [Streamlit Cloud](https://streamlit.io/cloud)
+3. Deploy your app by connecting to your GitHub repository
+4. Configure environment variables or secrets for authentication and API keys
 
 ## Local Development
 
@@ -68,7 +47,7 @@ pip install -r requirements.txt
 ```
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
-ALLOWED_USERS={"admin":"admin_password"}
+ALLOWED_USERS={"admin":"your_secure_password"}
 ```
 
 4. Run the app
@@ -86,8 +65,14 @@ sage-personal-ai/
 ├── logging_config.py   # Logging configuration
 ├── utils.py            # Utility functions
 ├── requirements.txt    # Python dependencies
+├── .env.example        # Example environment variables
+├── streamlit_cloud_setup.md  # Streamlit Cloud deployment guide
 └── chat_data/          # Directory for user data and chat history
-    └── users.json      # User profiles and usage data
+    ├── README.md       # Information about the chat data directory
+    ├── users.json      # User profiles and usage data (example)
+    ├── admin/          # Example admin user directory
+    ├── user1/          # Example user1 directory
+    └── user2/          # Example user2 directory
 ```
 
 ## License
